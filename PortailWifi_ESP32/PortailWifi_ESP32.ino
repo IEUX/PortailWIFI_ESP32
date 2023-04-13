@@ -5,8 +5,9 @@
 
 const bool debugMode = false;
 //GLOBAL Constants
-const int SoundSpeed = 0.034;
-
+const float SoundSpeed = 0.034;
+float timeStart;
+float timeTotal;
 //pins leds
 const int ledTest = 22;
 const int ledStatut = 23;
@@ -16,14 +17,14 @@ const int IN2 = 18;
 const int IN3 = 5;
 const int IN4 = 17;
 //pins capteur distance
-const int echo = 32;
-const int trigger = 33;
+const int echo = 14;
+const int trigger = 12;
 //controle ouverture portail
 bool isOpen = false;
  
 //constant step motor
 const int stepsPerRevolution = 512 ;
-const int step = 2;
+const int step = 4;
 const int iteration = stepsPerRevolution / step;
 const int rotationSpeed = 10;
 Stepper myStepper(stepsPerRevolution, IN1, IN3, IN2, IN4);
@@ -36,11 +37,11 @@ const char* password = "1234567890";
 WebServer server(port);
 
 //logs
-String logs = "Logs Gate:\n";
+String logs = "<a href='/'> Retour</a> <br> Logs Gate:<br>";
 
 void setup(){
     //INIT
-    Serial.begin(115200);
+    Serial.begin(9600);
     Serial.println(logs);
     //Pin mode
     pinMode(ledTest,OUTPUT);
@@ -90,7 +91,7 @@ void initRouter(){
     server.begin();
 }
 
-char statutPortail[2][10] = {"Ouvert!","Fermé! "};
+char statutPortail[2][10] = {"Fermé! ","Ouvert!"};
 
 //Home Page
 void handleRoot()
@@ -128,38 +129,46 @@ void handleRoot()
 
 void openGate() {
   if (isOpen == false) {
-    logs += "Opening gate... \n";
+    timeStart = millis();
+    logs += "Opening gate... <br>";
     digitalWrite(ledTest, LOW);
     for (int i = 0; i < iteration; i++) {
       stopWhenCrossing(1);
+      digitalWrite(ledStatut, HIGH);      
       myStepper.step(step);
-      digitalWrite(ledStatut, HIGH);
-      delay(50);
       digitalWrite(ledStatut, LOW);
     }
     digitalWrite(ledTest, HIGH);
     isOpen = true;
+    timeTotal = (millis() - timeStart)*0.001;    
+    logs += "Gate open in " + String(timeTotal) + " seconds <br>" ;
+    if (timeTotal > 7.5) {
+      logs += "Something blocked the gate. <br>";
+    }
   }
-  logs += "Gate open \n";
   server.sendHeader("Location","/");
   server.send(303);
 }
 
 void closeGate() {
   if (isOpen == true) {
-    logs += "Closing gate... \n";
+    timeStart = millis();
+    logs += "Closing gate... <br>";
     digitalWrite(ledTest, LOW);
     for (int i = 0; i < iteration; i++) {
       stopWhenCrossing(1);
+      digitalWrite(ledStatut, HIGH);      
       myStepper.step(-step);
-      digitalWrite(ledStatut, HIGH);
-      delay(50);
       digitalWrite(ledStatut, LOW);
     }
     digitalWrite(ledTest, HIGH);
     isOpen = false;
+    timeTotal = (millis() - timeStart)*0.001;    
+    logs += "Gate closed "+ String(timeTotal) + " seconds <br>";
+    if (timeTotal > 7.5) {
+      logs += "Something blocked the gate. <br>";
+    }
   }
-  logs += "Gate closed \n";
   server.sendHeader("Location","/");
   server.send(303);
 }
@@ -174,7 +183,7 @@ void sendLogs(){
 
 void stopWhenCrossing(int status){
   if (status = 1){
-    logs += "Gate blocked \n";
+    //logs += "Gate blocked \n";
   }
   long duration;
   float distance;
@@ -184,9 +193,9 @@ void stopWhenCrossing(int status){
   delayMicroseconds(10);
   digitalWrite(trigger,LOW);
   duration = pulseIn(echo, HIGH);
-  distance = duration * SoundSpeed/2;
+  distance = duration * SoundSpeed/2 ;
   Serial.println(distance);
-  if (distance <= 3) {
+  if (distance <= 10) {
     stopWhenCrossing(0);
   }
 }
